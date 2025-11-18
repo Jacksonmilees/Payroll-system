@@ -163,9 +163,8 @@ return [
 		Illuminate\Translation\TranslationServiceProvider::class,
 		Illuminate\Validation\ValidationServiceProvider::class,
 		Illuminate\View\ViewServiceProvider::class,
-		MaddHatter\LaravelFullcalendar\ServiceProvider::class,
 		Barryvdh\DomPDF\ServiceProvider::class,
-		Zizaco\Entrust\EntrustServiceProvider::class,
+		Laratrust\LaratrustServiceProvider::class,
 		Maatwebsite\Excel\ExcelServiceProvider::class,
 
 		/*
@@ -229,9 +228,8 @@ return [
 		'URL' => Illuminate\Support\Facades\URL::class,
 		'Validator' => Illuminate\Support\Facades\Validator::class,
 		'View' => Illuminate\Support\Facades\View::class,
-		'Calendar' => MaddHatter\LaravelFullcalendar\Facades\Calendar::class,
 		'PDF' => Barryvdh\DomPDF\Facade::class,
-		'Entrust' => Zizaco\Entrust\EntrustFacade::class,
+		'Laratrust' => Laratrust\LaratrustFacade::class,
 		'Excel' => Maatwebsite\Excel\Facades\Excel::class,
 
 	],

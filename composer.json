@@ -7,12 +7,11 @@
     "require": {
         "php": ">=7.2.5",
         "barryvdh/laravel-dompdf": "^0.8.1",
-        "fideloper/proxy": "~3.3",
+        "fideloper/proxy": "^4.2",
         "laravel/framework": "7.*",
-        "laravel/tinker": "~1.0",
+        "laravel/tinker": "^2.0",
         "maatwebsite/excel": "^3.1",
-        "maddhatter/laravel-fullcalendar": "~1.0",
-        "zizaco/entrust": "5.2.x-dev"
+        "santigarcor/laratrust": "^5.2"
     },
     "require-dev": {
         "filp/whoops": "~2.0",

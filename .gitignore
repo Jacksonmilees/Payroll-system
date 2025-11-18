@@ -20,9 +20,6 @@
 /public/images/attd
 /public/images/*.jpg
 /public/images/*.png
-composer.lock
-yarn.lock
-package-lock.json
 Dockerfile
 docker-compose.yml
 .dockerignore

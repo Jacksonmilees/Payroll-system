@@ -9,6 +9,8 @@ use Illuminate\Support\Collection;
 use InvalidArgumentException;
 use Maatwebsite\Excel\Exceptions\NoFilePathGivenException;
 use Maatwebsite\Excel\Importer;
+use Symfony\Component\Console\Input\StringInput;
+use Symfony\Component\Console\Output\NullOutput;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 trait Importable
@@ -19,14 +21,14 @@ trait Importable
     protected $output;
 
     /**
-     * @param string|UploadedFile|null $filePath
-     * @param string|null              $disk
-     * @param string|null              $readerType
+     * @param  string|UploadedFile|null  $filePath
+     * @param  string|null  $disk
+     * @param  string|null  $readerType
+     * @return Importer|PendingDispatch
      *
      * @throws NoFilePathGivenException
-     * @return Importer|PendingDispatch
      */
-    public function import($filePath = null, string $disk = null, string $readerType = null)
+    public function import($filePath = null, ?string $disk = null, ?string $readerType = null)
     {
         $filePath = $this->getFilePath($filePath);
 
@@ -39,14 +41,14 @@ trait Importable
     }
 
     /**
-     * @param string|UploadedFile|null $filePath
-     * @param string|null              $disk
-     * @param string|null              $readerType
+     * @param  string|UploadedFile|null  $filePath
+     * @param  string|null  $disk
+     * @param  string|null  $readerType
+     * @return array
      *
      * @throws NoFilePathGivenException
-     * @return array
      */
-    public function toArray($filePath = null, string $disk = null, string $readerType = null): array
+    public function toArray($filePath = null, ?string $disk = null, ?string $readerType = null): array
     {
         $filePath = $this->getFilePath($filePath);
 
@@ -59,14 +61,14 @@ trait Importable
     }
 
     /**
-     * @param string|UploadedFile|null $filePath
-     * @param string|null              $disk
-     * @param string|null              $readerType
+     * @param  string|UploadedFile|null  $filePath
+     * @param  string|null  $disk
+     * @param  string|null  $readerType
+     * @return Collection
      *
      * @throws NoFilePathGivenException
-     * @return Collection
      */
-    public function toCollection($filePath = null, string $disk = null, string $readerType = null): Collection
+    public function toCollection($filePath = null, ?string $disk = null, ?string $readerType = null): Collection
     {
         $filePath = $this->getFilePath($filePath);
 
@@ -79,15 +81,15 @@ trait Importable
     }
 
     /**
-     * @param string|UploadedFile|null $filePath
-     * @param string|null              $disk
-     * @param string|null              $readerType
+     * @param  string|UploadedFile|null  $filePath
+     * @param  string|null  $disk
+     * @param  string|null  $readerType
+     * @return PendingDispatch
      *
      * @throws NoFilePathGivenException
      * @throws InvalidArgumentException
-     * @return PendingDispatch
      */
-    public function queue($filePath = null, string $disk = null, string $readerType = null)
+    public function queue($filePath = null, ?string $disk = null, ?string $readerType = null)
     {
         if (!$this instanceof ShouldQueue) {
             throw new InvalidArgumentException('Importable should implement ShouldQueue to be queued.');
@@ -97,8 +99,7 @@ trait Importable
     }
 
     /**
-     * @param OutputStyle $output
-     *
+     * @param  OutputStyle  $output
      * @return $this
      */
     public function withOutput(OutputStyle $output)
@@ -114,19 +115,17 @@ trait Importable
     public function getConsoleOutput(): OutputStyle
     {
         if (!$this->output instanceof OutputStyle) {
-            throw new InvalidArgumentException(
-                'Importable has no OutputStyle. Declare one by using ->withOutput($this->output).'
-            );
+            $this->output = new OutputStyle(new StringInput(''), new NullOutput());
         }
 
         return $this->output;
     }
 
     /**
-     * @param UploadedFile|string|null $filePath
+     * @param  UploadedFile|string|null  $filePath
+     * @return UploadedFile|string
      *
      * @throws NoFilePathGivenException
-     * @return UploadedFile|string
      */
     private function getFilePath($filePath = null)
     {

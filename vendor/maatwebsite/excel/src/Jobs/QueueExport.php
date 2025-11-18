@@ -4,13 +4,17 @@ namespace Maatwebsite\Excel\Jobs;
 
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Queue\InteractsWithQueue;
 use Maatwebsite\Excel\Concerns\WithMultipleSheets;
+use Maatwebsite\Excel\Exceptions\NoSheetsFoundException;
 use Maatwebsite\Excel\Files\TemporaryFile;
+use Maatwebsite\Excel\Jobs\Middleware\LocalizeJob;
 use Maatwebsite\Excel\Writer;
+use Throwable;
 
 class QueueExport implements ShouldQueue
 {
-    use ExtendedQueueable, Dispatchable;
+    use ExtendedQueueable, Dispatchable, InteractsWithQueue;
 
     /**
      * @var object
@@ -28,9 +32,9 @@ class QueueExport implements ShouldQueue
     private $temporaryFile;
 
     /**
-     * @param object        $export
-     * @param TemporaryFile $temporaryFile
-     * @param string        $writerType
+     * @param  object  $export
+     * @param  TemporaryFile  $temporaryFile
+     * @param  string  $writerType
      */
     public function __construct($export, TemporaryFile $temporaryFile, string $writerType)
     {
@@ -50,26 +54,42 @@ class QueueExport implements ShouldQueue
     }
 
     /**
-     * @param Writer $writer
+     * @param  Writer  $writer
      *
      * @throws \PhpOffice\PhpSpreadsheet\Exception
      */
     public function handle(Writer $writer)
     {
-        $writer->open($this->export);
+        (new LocalizeJob($this->export))->handle($this, function () use ($writer) {
+            $writer->open($this->export);
 
-        $sheetExports = [$this->export];
-        if ($this->export instanceof WithMultipleSheets) {
-            $sheetExports = $this->export->sheets();
+            $sheetExports = [$this->export];
+            if ($this->export instanceof WithMultipleSheets) {
+                $sheetExports = $this->export->sheets();
+            }
+
+            if (count($sheetExports) === 0) {
+                throw new NoSheetsFoundException('Your export did not return any sheet export instances, please make sure your sheets() method always at least returns one instance.');
+            }
+
+            // Pre-create the worksheets
+            foreach ($sheetExports as $sheetIndex => $sheetExport) {
+                $sheet = $writer->addNewSheet($sheetIndex);
+                $sheet->open($sheetExport);
+            }
+
+            // Write to temp file with empty sheets.
+            $writer->write($sheetExport, $this->temporaryFile, $this->writerType);
+        });
+    }
+
+    /**
+     * @param  Throwable  $e
+     */
+    public function failed(Throwable $e)
+    {
+        if (method_exists($this->export, 'failed')) {
+            $this->export->failed($e);
         }
-
-        // Pre-create the worksheets
-        foreach ($sheetExports as $sheetIndex => $sheetExport) {
-            $sheet = $writer->addNewSheet($sheetIndex);
-            $sheet->open($sheetExport);
-        }
-
-        // Write to temp file with empty sheets.
-        $writer->write($sheetExport, $this->temporaryFile, $this->writerType);
     }
 }
