@@ -7,6 +7,7 @@ use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Support\Jsonable;
 use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Support\Traits\Macroable;
+use InvalidArgumentException;
 use JsonSerializable;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
@@ -37,12 +38,24 @@ class Response extends SymfonyResponse
     }
 
     /**
+     * Get the response content.
+     */
+    #[\Override]
+    public function getContent(): string|false
+    {
+        return transform(parent::getContent(), fn ($content) => $content, '');
+    }
+
+    /**
      * Set the content on the response.
      *
      * @param  mixed  $content
      * @return $this
+     *
+     * @throws \InvalidArgumentException
      */
-    public function setContent($content)
+    #[\Override]
+    public function setContent(mixed $content): static
     {
         $this->original = $content;
 
@@ -53,6 +66,10 @@ class Response extends SymfonyResponse
             $this->header('Content-Type', 'application/json');
 
             $content = $this->morphToJson($content);
+
+            if ($content === false) {
+                throw new InvalidArgumentException(json_last_error_msg());
+            }
         }
 
         // If this content implements the "Renderable" interface then we will call the
@@ -86,7 +103,7 @@ class Response extends SymfonyResponse
      * Morph the given content into JSON.
      *
      * @param  mixed  $content
-     * @return string
+     * @return string|false
      */
     protected function morphToJson($content)
     {

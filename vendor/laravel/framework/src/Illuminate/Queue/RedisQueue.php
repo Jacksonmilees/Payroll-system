@@ -2,12 +2,15 @@
 
 namespace Illuminate\Queue;
 
+use Illuminate\Contracts\Queue\ClearableQueue;
 use Illuminate\Contracts\Queue\Queue as QueueContract;
 use Illuminate\Contracts\Redis\Factory as Redis;
 use Illuminate\Queue\Jobs\RedisJob;
+use Illuminate\Redis\Connections\PhpRedisClusterConnection;
+use Illuminate\Redis\Connections\PredisClusterConnection;
 use Illuminate\Support\Str;
 
-class RedisQueue extends Queue implements QueueContract
+class RedisQueue extends Queue implements QueueContract, ClearableQueue
 {
     /**
      * The Redis factory implementation.
@@ -45,6 +48,24 @@ class RedisQueue extends Queue implements QueueContract
     protected $blockFor = null;
 
     /**
+     * The batch size to use when migrating delayed / expired jobs onto the primary queue.
+     *
+     * Negative values are infinite.
+     *
+     * @var int
+     */
+    protected $migrationBatchSize = -1;
+
+    /**
+     * Indicates if a secondary queue had a job available between checks of the primary queue.
+     *
+     * Only applicable when monitoring multiple named queues with a single instance.
+     *
+     * @var bool
+     */
+    protected $secondaryQueueHadJob = false;
+
+    /**
      * Create a new Redis queue instance.
      *
      * @param  \Illuminate\Contracts\Redis\Factory  $redis
@@ -52,15 +73,26 @@ class RedisQueue extends Queue implements QueueContract
      * @param  string|null  $connection
      * @param  int  $retryAfter
      * @param  int|null  $blockFor
+     * @param  bool  $dispatchAfterCommit
+     * @param  int  $migrationBatchSize
      * @return void
      */
-    public function __construct(Redis $redis, $default = 'default', $connection = null, $retryAfter = 60, $blockFor = null)
-    {
+    public function __construct(
+        Redis $redis,
+        $default = 'default',
+        $connection = null,
+        $retryAfter = 60,
+        $blockFor = null,
+        $dispatchAfterCommit = false,
+        $migrationBatchSize = -1,
+    ) {
         $this->redis = $redis;
         $this->default = $default;
         $this->blockFor = $blockFor;
         $this->connection = $connection;
         $this->retryAfter = $retryAfter;
+        $this->dispatchAfterCommit = $dispatchAfterCommit;
+        $this->migrationBatchSize = $migrationBatchSize;
     }
 
     /**
@@ -79,6 +111,37 @@ class RedisQueue extends Queue implements QueueContract
     }
 
     /**
+     * Push an array of jobs onto the queue.
+     *
+     * @param  array  $jobs
+     * @param  mixed  $data
+     * @param  string|null  $queue
+     * @return void
+     */
+    public function bulk($jobs, $data = '', $queue = null)
+    {
+        $connection = $this->getConnection();
+
+        $bulk = function () use ($jobs, $data, $queue) {
+            foreach ((array) $jobs as $job) {
+                if (isset($job->delay)) {
+                    $this->later($job->delay, $job, $data, $queue);
+                } else {
+                    $this->push($job, $data, $queue);
+                }
+            }
+        };
+
+        if ($connection instanceof PhpRedisClusterConnection) {
+            $connection->transaction($bulk);
+        } elseif ($connection instanceof PredisClusterConnection) {
+            $connection->pipeline($bulk);
+        } else {
+            $connection->pipeline(fn () => $connection->transaction($bulk));
+        }
+    }
+
+    /**
      * Push a new job onto the queue.
      *
      * @param  object|string  $job
@@ -88,7 +151,15 @@ class RedisQueue extends Queue implements QueueContract
      */
     public function push($job, $data = '', $queue = null)
     {
-        return $this->pushRaw($this->createPayload($job, $this->getQueue($queue), $data), $queue);
+        return $this->enqueueUsing(
+            $job,
+            $this->createPayload($job, $this->getQueue($queue), $data),
+            $queue,
+            null,
+            function ($payload, $queue) {
+                return $this->pushRaw($payload, $queue);
+            }
+        );
     }
 
     /**
@@ -120,11 +191,19 @@ class RedisQueue extends Queue implements QueueContract
      */
     public function later($delay, $job, $data = '', $queue = null)
     {
-        return $this->laterRaw($delay, $this->createPayload($job, $this->getQueue($queue), $data), $queue);
+        return $this->enqueueUsing(
+            $job,
+            $this->createPayload($job, $this->getQueue($queue), $data),
+            $queue,
+            $delay,
+            function ($payload, $queue, $delay) {
+                return $this->laterRaw($delay, $payload, $queue);
+            }
+        );
     }
 
     /**
-     * Push a raw job onto the queue after a delay.
+     * Push a raw job onto the queue after (n) seconds.
      *
      * @param  \DateTimeInterface|\DateInterval|int  $delay
      * @param  string  $payload
@@ -162,17 +241,23 @@ class RedisQueue extends Queue implements QueueContract
      * @param  string|null  $queue
      * @return \Illuminate\Contracts\Queue\Job|null
      */
-    public function pop($queue = null)
+    public function pop($queue = null, $index = 0)
     {
         $this->migrate($prefixed = $this->getQueue($queue));
 
-        if (empty($nextJob = $this->retrieveNextJob($prefixed))) {
-            return;
+        $block = ! $this->secondaryQueueHadJob && $index == 0;
+
+        [$job, $reserved] = $this->retrieveNextJob($prefixed, $block);
+
+        if ($index == 0) {
+            $this->secondaryQueueHadJob = false;
         }
 
-        [$job, $reserved] = $nextJob;
-
         if ($reserved) {
+            if ($index > 0) {
+                $this->secondaryQueueHadJob = true;
+            }
+
             return new RedisJob(
                 $this->container, $this, $job,
                 $reserved, $this->connectionName, $queue ?: $this->default
@@ -205,7 +290,7 @@ class RedisQueue extends Queue implements QueueContract
     public function migrateExpiredJobs($from, $to)
     {
         return $this->getConnection()->eval(
-            LuaScripts::migrateExpiredJobs(), 3, $from, $to, $to.':notify', $this->currentTime()
+            LuaScripts::migrateExpiredJobs(), 3, $from, $to, $to.':notify', $this->currentTime(), $this->migrationBatchSize
         );
     }
 
@@ -264,6 +349,22 @@ class RedisQueue extends Queue implements QueueContract
         $this->getConnection()->eval(
             LuaScripts::release(), 2, $queue.':delayed', $queue.':reserved',
             $job->getReservedJob(), $this->availableAt($delay)
+        );
+    }
+
+    /**
+     * Delete all of the jobs from the queue.
+     *
+     * @param  string  $queue
+     * @return int
+     */
+    public function clear($queue)
+    {
+        $queue = $this->getQueue($queue);
+
+        return $this->getConnection()->eval(
+            LuaScripts::clear(), 4, $queue, $queue.':delayed',
+            $queue.':reserved', $queue.':notify'
         );
     }
 

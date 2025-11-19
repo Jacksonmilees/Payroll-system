@@ -6,20 +6,26 @@ use Closure;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Str;
 use Illuminate\Support\Traits\ForwardsCalls;
+use Illuminate\Support\Traits\Tappable;
+use Stringable;
+use Traversable;
 
 /**
- * @mixin \Illuminate\Support\Collection
+ * @template TKey of array-key
+ *
+ * @template-covariant TValue
+ *
+ * @mixin \Illuminate\Support\Collection<TKey, TValue>
  */
-abstract class AbstractPaginator implements Htmlable
+abstract class AbstractPaginator implements Htmlable, Stringable
 {
-    use ForwardsCalls;
+    use ForwardsCalls, Tappable;
 
     /**
      * All of the items being paginated.
      *
-     * @var \Illuminate\Support\Collection
+     * @var \Illuminate\Support\Collection<TKey, TValue>
      */
     protected $items;
 
@@ -112,14 +118,14 @@ abstract class AbstractPaginator implements Htmlable
      *
      * @var string
      */
-    public static $defaultView = 'pagination::bootstrap-4';
+    public static $defaultView = 'pagination::tailwind';
 
     /**
      * The default "simple" pagination view.
      *
      * @var string
      */
-    public static $defaultSimpleView = 'pagination::simple-bootstrap-4';
+    public static $defaultSimpleView = 'pagination::simple-tailwind';
 
     /**
      * Determine if the given value is a valid page number.
@@ -153,9 +159,9 @@ abstract class AbstractPaginator implements Htmlable
      */
     public function getUrlRange($start, $end)
     {
-        return collect(range($start, $end))->mapWithKeys(function ($page) {
-            return [$page => $this->url($page)];
-        })->all();
+        return Collection::range($start, $end)
+            ->mapWithKeys(fn ($page) => [$page => $this->url($page)])
+            ->all();
     }
 
     /**
@@ -180,7 +186,7 @@ abstract class AbstractPaginator implements Htmlable
         }
 
         return $this->path()
-                        .(Str::contains($this->path(), '?') ? '&' : '?')
+                        .(str_contains($this->path(), '?') ? '&' : '?')
                         .Arr::query($parameters)
                         .$this->buildFragment();
     }
@@ -308,7 +314,7 @@ abstract class AbstractPaginator implements Htmlable
     /**
      * Get the slice of items being paginated.
      *
-     * @return array
+     * @return array<TKey, TValue>
      */
     public function items()
     {
@@ -318,7 +324,7 @@ abstract class AbstractPaginator implements Htmlable
     /**
      * Get the number of the first item in the slice.
      *
-     * @return int
+     * @return int|null
      */
     public function firstItem()
     {
@@ -328,11 +334,24 @@ abstract class AbstractPaginator implements Htmlable
     /**
      * Get the number of the last item in the slice.
      *
-     * @return int
+     * @return int|null
      */
     public function lastItem()
     {
         return count($this->items) > 0 ? $this->firstItem() + $this->count() - 1 : null;
+    }
+
+    /**
+     * Transform each item in the slice of items using a callback.
+     *
+     * @param  callable  $callback
+     * @return $this
+     */
+    public function through(callable $callback)
+    {
+        $this->items->transform($callback);
+
+        return $this;
     }
 
     /**
@@ -363,6 +382,16 @@ abstract class AbstractPaginator implements Htmlable
     public function onFirstPage()
     {
         return $this->currentPage() <= 1;
+    }
+
+    /**
+     * Determine if the paginator is on the last page.
+     *
+     * @return bool
+     */
+    public function onLastPage()
+    {
+        return ! $this->hasMorePages();
     }
 
     /**
@@ -499,6 +528,21 @@ abstract class AbstractPaginator implements Htmlable
     }
 
     /**
+     * Resolve the query string or return the default value.
+     *
+     * @param  string|array|null  $default
+     * @return string
+     */
+    public static function resolveQueryString($default = null)
+    {
+        if (isset(static::$queryStringResolver)) {
+            return (static::$queryStringResolver)();
+        }
+
+        return $default;
+    }
+
+    /**
      * Set with query string resolver callback.
      *
      * @param  \Closure  $resolver
@@ -564,6 +608,16 @@ abstract class AbstractPaginator implements Htmlable
     }
 
     /**
+     * Indicate that Bootstrap 4 styling should be used for generated links.
+     *
+     * @return void
+     */
+    public static function useBootstrap()
+    {
+        static::useBootstrapFour();
+    }
+
+    /**
      * Indicate that Bootstrap 3 styling should be used for generated links.
      *
      * @return void
@@ -575,11 +629,33 @@ abstract class AbstractPaginator implements Htmlable
     }
 
     /**
+     * Indicate that Bootstrap 4 styling should be used for generated links.
+     *
+     * @return void
+     */
+    public static function useBootstrapFour()
+    {
+        static::defaultView('pagination::bootstrap-4');
+        static::defaultSimpleView('pagination::simple-bootstrap-4');
+    }
+
+    /**
+     * Indicate that Bootstrap 5 styling should be used for generated links.
+     *
+     * @return void
+     */
+    public static function useBootstrapFive()
+    {
+        static::defaultView('pagination::bootstrap-5');
+        static::defaultSimpleView('pagination::simple-bootstrap-5');
+    }
+
+    /**
      * Get an iterator for the items.
      *
-     * @return \ArrayIterator
+     * @return \ArrayIterator<TKey, TValue>
      */
-    public function getIterator()
+    public function getIterator(): Traversable
     {
         return $this->items->getIterator();
     }
@@ -609,7 +685,7 @@ abstract class AbstractPaginator implements Htmlable
      *
      * @return int
      */
-    public function count()
+    public function count(): int
     {
         return $this->items->count();
     }
@@ -617,7 +693,7 @@ abstract class AbstractPaginator implements Htmlable
     /**
      * Get the paginator's underlying collection.
      *
-     * @return \Illuminate\Support\Collection
+     * @return \Illuminate\Support\Collection<TKey, TValue>
      */
     public function getCollection()
     {
@@ -627,7 +703,7 @@ abstract class AbstractPaginator implements Htmlable
     /**
      * Set the paginator's underlying collection.
      *
-     * @param  \Illuminate\Support\Collection  $collection
+     * @param  \Illuminate\Support\Collection<TKey, TValue>  $collection
      * @return $this
      */
     public function setCollection(Collection $collection)
@@ -650,10 +726,10 @@ abstract class AbstractPaginator implements Htmlable
     /**
      * Determine if the given item exists.
      *
-     * @param  mixed  $key
+     * @param  TKey  $key
      * @return bool
      */
-    public function offsetExists($key)
+    public function offsetExists($key): bool
     {
         return $this->items->has($key);
     }
@@ -661,10 +737,10 @@ abstract class AbstractPaginator implements Htmlable
     /**
      * Get the item at the given offset.
      *
-     * @param  mixed  $key
-     * @return mixed
+     * @param  TKey  $key
+     * @return TValue|null
      */
-    public function offsetGet($key)
+    public function offsetGet($key): mixed
     {
         return $this->items->get($key);
     }
@@ -672,11 +748,11 @@ abstract class AbstractPaginator implements Htmlable
     /**
      * Set the item at the given offset.
      *
-     * @param  mixed  $key
-     * @param  mixed  $value
+     * @param  TKey|null  $key
+     * @param  TValue  $value
      * @return void
      */
-    public function offsetSet($key, $value)
+    public function offsetSet($key, $value): void
     {
         $this->items->put($key, $value);
     }
@@ -684,10 +760,10 @@ abstract class AbstractPaginator implements Htmlable
     /**
      * Unset the item at the given key.
      *
-     * @param  mixed  $key
+     * @param  TKey  $key
      * @return void
      */
-    public function offsetUnset($key)
+    public function offsetUnset($key): void
     {
         $this->items->forget($key);
     }
@@ -715,7 +791,7 @@ abstract class AbstractPaginator implements Htmlable
     }
 
     /**
-     * Render the contents of the paginator when casting to string.
+     * Render the contents of the paginator when casting to a string.
      *
      * @return string
      */
