@@ -81,7 +81,7 @@
 </head>
 <body class="{{ auth()->check() ? 'body-app' : 'body-auth' }}">
     <div class="frame-shell" id="app">
-        @unless (request()->routeIs('login'))
+        @unless (request()->routeIs('login') || request()->routeIs('password.request') || request()->routeIs('password.reset'))
             <header class="nav-shell {{ auth()->check() ? '' : 'nav-shell--ghost' }}">
                 <a class="nav-shell__brand" href="{{ url('/') }}">
                     {{ config('app.name', 'Payroll Suite') }}
