@@ -81,30 +81,32 @@
 </head>
 <body class="{{ auth()->check() ? 'body-app' : 'body-auth' }}">
     <div class="frame-shell" id="app">
-        <header class="nav-shell {{ auth()->check() ? '' : 'nav-shell--ghost' }}">
-            <a class="nav-shell__brand" href="{{ url('/') }}">
-                {{ config('app.name', 'Payroll Suite') }}
-            </a>
-            <div class="nav-shell__actions">
-                @guest
-                    @if (!request()->routeIs('login'))
-                        <a class="btn-outline" href="{{ route('login') }}">{{ __('Login') }}</a>
-                    @endif
-                    @if (!request()->routeIs('register'))
-                        <a class="btn-solid" href="{{ route('register') }}">{{ __('Register') }}</a>
-                    @endif
-                @else
-                    <span>{{ Auth::user()->name }}</span>
-                    <a class="btn-solid" href="{{ route('logout') }}"
-                       onclick="event.preventDefault();document.getElementById('logout-form').submit();">
-                        {{ __('Logout') }}
-                    </a>
-                    <form id="logout-form" action="{{ route('logout') }}" method="POST" style="display:none;">
-                        {{ csrf_field() }}
-                    </form>
-                @endguest
-            </div>
-        </header>
+        @unless (request()->routeIs('login'))
+            <header class="nav-shell {{ auth()->check() ? '' : 'nav-shell--ghost' }}">
+                <a class="nav-shell__brand" href="{{ url('/') }}">
+                    {{ config('app.name', 'Payroll Suite') }}
+                </a>
+                <div class="nav-shell__actions">
+                    @guest
+                        @if (!request()->routeIs('login'))
+                            <a class="btn-outline" href="{{ route('login') }}">{{ __('Login') }}</a>
+                        @endif
+                        @if (!request()->routeIs('register'))
+                            <a class="btn-solid" href="{{ route('register') }}">{{ __('Register') }}</a>
+                        @endif
+                    @else
+                        <span>{{ Auth::user()->name }}</span>
+                        <a class="btn-solid" href="{{ route('logout') }}"
+                           onclick="event.preventDefault();document.getElementById('logout-form').submit();">
+                            {{ __('Logout') }}
+                        </a>
+                        <form id="logout-form" action="{{ route('logout') }}" method="POST" style="display:none;">
+                            {{ csrf_field() }}
+                        </form>
+                    @endguest
+                </div>
+            </header>
+        @endunless
 
         <main class="content-shell">
             @yield('content')
