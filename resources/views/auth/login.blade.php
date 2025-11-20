@@ -215,7 +215,7 @@
                 <h2>{{ config('app.name', __('Payroll Suite')) }}</h2>
                 <p>{{ __('Use your workspace credentials to unlock the control center.') }}</p>
             </div>
-            <form method="POST" action="{{ route('login') }}">
+            <form method="POST" action="{{ route('login.perform') }}">
                 {{ csrf_field() }}
 
                 <div class="floating-label{{ $errors->has('email') ? ' has-error' : '' }}">
