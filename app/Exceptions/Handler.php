@@ -91,7 +91,7 @@ class Handler extends ExceptionHandler
     /**
      * Render an exception into an HTTP response.
      */
-    public function render($request, Throwable $e): Response
+    public function render($request, Throwable $e)
     {
         // Log the exception
         $this->logException($e);
@@ -294,7 +294,7 @@ class Handler extends ExceptionHandler
     /**
      * Handle API exceptions
      */
-    protected function handleApiException(Request $request, Throwable $e): Response
+    protected function handleApiException($request, Throwable $e)
     {
         $exception = $this->prepareException($e);
         $statusCode = $this->getExceptionStatusCode($exception);
@@ -327,7 +327,7 @@ class Handler extends ExceptionHandler
     /**
      * Handle web exceptions
      */
-    protected function handleWebException(Request $request, Throwable $e): Response
+    protected function handleWebException($request, Throwable $e)
     {
         $exception = $this->prepareException($e);
 
@@ -383,7 +383,7 @@ class Handler extends ExceptionHandler
     /**
      * Convert an authentication exception into a response.
      */
-    protected function unauthenticated(Request $request, AuthenticationException $exception): Response
+    protected function unauthenticated($request, AuthenticationException $exception)
     {
         if ($request->expectsJson() || $request->is('api/*')) {
             return response()->json([
@@ -399,7 +399,7 @@ class Handler extends ExceptionHandler
     /**
      * Convert an authorization exception into a response.
      */
-    protected function unauthorized(Request $request, AuthorizationException $exception): Response
+    protected function unauthorized($request, AuthorizationException $exception)
     {
         if ($request->expectsJson() || $request->is('api/*')) {
             return response()->json([
@@ -415,7 +415,7 @@ class Handler extends ExceptionHandler
     /**
      * Create a response object from the given validation exception.
      */
-    protected function convertValidationExceptionToResponse(ValidationException $e, Request $request): Response
+    protected function convertValidationExceptionToResponse(ValidationException $e, $request)
     {
         if ($e->response) {
             return $e->response;
