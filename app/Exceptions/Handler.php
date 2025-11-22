@@ -415,7 +415,7 @@ class Handler extends ExceptionHandler
     /**
      * Create a response object from the given validation exception.
      */
-    protected function convertValidationExceptionToResponse(ValidationException $e, Request $request): Response
+    protected function convertValidationExceptionToResponse(ValidationException $e, $request)
     {
         if ($e->response) {
             return $e->response;
