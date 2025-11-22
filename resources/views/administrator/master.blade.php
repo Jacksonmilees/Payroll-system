@@ -101,6 +101,9 @@
         <!-- Scripts -->
         @include('administrator.layouts.scripts')
 
+        <!-- Accessibility Features -->
+        @include('administrator.partials.accessibility')
+
         <!-- Logo Modal (modernized) -->
         <div class="modal fade" id="logo-modal" tabindex="-1" aria-labelledby="logoModalLabel" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
