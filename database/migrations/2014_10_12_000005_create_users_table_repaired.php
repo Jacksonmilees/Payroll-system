@@ -11,9 +11,9 @@ class CreateUsersTableRepaired extends Migration {
 	 * @return void
 	 */
 	public function up() {
-		if (!Schema::hasTable('users')) {
-			Schema::create('users', function (Blueprint $table) {
-				$table->increments('id');
+		// Removed Schema::hasTable check to avoid transaction aborts on Postgres if the check fails silently.
+		Schema::create('users', function (Blueprint $table) {
+			$table->increments('id');
 				$table->integer('created_by')->nullable();
 				$table->string('employee_id')->nullable();
 				$table->string('name');
@@ -59,7 +59,6 @@ class CreateUsersTableRepaired extends Migration {
 				$table->rememberToken();
 				$table->timestamps();
 			});
-		}
 	}
 
 	/**
