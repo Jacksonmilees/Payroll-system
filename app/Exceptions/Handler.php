@@ -399,7 +399,7 @@ class Handler extends ExceptionHandler
     /**
      * Convert an authorization exception into a response.
      */
-    protected function unauthorized(Request $request, AuthorizationException $exception): Response
+    protected function unauthorized($request, AuthorizationException $exception)
     {
         if ($request->expectsJson() || $request->is('api/*')) {
             return response()->json([
