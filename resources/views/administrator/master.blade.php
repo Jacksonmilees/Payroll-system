@@ -30,9 +30,7 @@
                     <!-- User menu -->
                     <div class="d-flex align-items-center">
                         <!-- Dark mode toggle -->
-                        <button class="btn btn-link text-white me-3" id="dark-mode-toggle" aria-label="Toggle dark mode">
-                            <i class="bi bi-moon-fill"></i>
-                        </button>
+                        @include('administrator.partials.theme-toggle', ['size' => 'md'])
 
                         <!-- User dropdown -->
                         <div class="dropdown">
