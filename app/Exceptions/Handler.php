@@ -294,7 +294,7 @@ class Handler extends ExceptionHandler
     /**
      * Handle API exceptions
      */
-    protected function handleApiException(Request $request, Throwable $e): Response
+    protected function handleApiException($request, Throwable $e)
     {
         $exception = $this->prepareException($e);
         $statusCode = $this->getExceptionStatusCode($exception);
